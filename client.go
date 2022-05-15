@@ -1,12 +1,12 @@
 package safe
 
 import (
+	"crypto/tls"
+	"errors"
+	"fmt"
 	vault "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/helper/certutil"
-	"crypto/tls"
-	"fmt"
 	"log"
-	"errors"
 )
 
 type Client struct {
@@ -16,14 +16,14 @@ type Client struct {
 type Vault struct {
 	Address        string
 	Authentication string
-	Path          string
+	Path           string
 	Credential     Credential
 }
 
 type Credential struct {
-	Token          string
-	RoleID         string
-	SecretID       string
+	Token    string
+	RoleID   string
+	SecretID string
 }
 
 func NewClient(config *Vault) (*Client, error) {
@@ -99,4 +99,28 @@ func (c *Client) GetTLSConfig(path string, data map[string]interface{}) (*tls.Co
 
 	return tlsConfig, nil
 
+}
+
+func (c *Client) RenewSecret(secret vault.Secret) error {
+	watcher, err := c.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
+		Secret: &secret,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go watcher.Start()
+	defer watcher.Stop()
+
+	for {
+		select {
+		case err := <-watcher.DoneCh():
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Fatalf("Failed to renew secret %s", secret.LeaseID)
+		case watcher := <-watcher.RenewCh():
+			log.Printf("Succesfully renewed secret %s", watcher.Secret.LeaseID)
+		}
+	}
 }
