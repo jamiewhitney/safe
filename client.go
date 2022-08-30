@@ -40,6 +40,11 @@ type AWSCredentials struct {
 	Secret     *vault.Secret
 }
 
+type GCPCredentials struct {
+	Data   *google.Credentials
+	Secret *vault.Secret
+}
+
 func NewClient(config *Vault) (*Client, error) {
 	client, err := vault.NewClient(vault.DefaultConfig())
 
@@ -200,5 +205,27 @@ func (c *Client) GetAWSCredentials(path string) (*AWSCredentials, error) {
 		Access_key: credentials.Data["access_key"].(string),
 		Secret_key: credentials.Data["secret_key"].(string),
 		Secret:     credentials,
+	}, nil
+}
+
+func (c *Client) GetGCPServiceAccount(path string) (*GCPCredentials, error) {
+	secret, err := c.Client.Logical().Read(path)
+	if err != nil {
+		return nil, err
+	}
+	
+	secret_data, err := base64.StdEncoding.DecodeString(secret.Data["private_key_data"].(string))
+	if err != nil {
+		return nil, err
+	}
+
+	credentials, err := google.CredentialsFromJSON(context.Background(), secret_data, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return nil, err
+	}
+
+	return &GCPCredentials{
+		Data:   credentials,
+		Secret: secret,
 	}, nil
 }
