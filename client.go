@@ -1,14 +1,15 @@
 package safe
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
-
-	"encoding/base64"
 	vault "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/helper/certutil"
+	"golang.org/x/oauth2/google"
+	"log"
 )
 
 type Client struct {
@@ -213,7 +214,7 @@ func (c *Client) GetGCPServiceAccount(path string) (*GCPCredentials, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	secret_data, err := base64.StdEncoding.DecodeString(secret.Data["private_key_data"].(string))
 	if err != nil {
 		return nil, err
