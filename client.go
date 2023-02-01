@@ -103,7 +103,7 @@ func (c *Client) GetTLSConfig(path string, data map[string]interface{}) (*tls.Co
 		return nil, err
 	}
 
-	ParsedCertBundle, err := certutil.ParsePKIMap(secret.Data)
+	parsedCertBundle, err := certutil.ParsePKIMap(secret.Data)
 	if err != nil {
 		return nil, err
 	}
