@@ -36,9 +36,9 @@ type DatabaseCredentials struct {
 }
 
 type AWSCredentials struct {
-	Access_key string
-	Secret_key string
-	Secret     *vault.Secret
+	AccessKey string
+	SecretKey string
+	Secret    *vault.Secret
 }
 
 type GCPCredentials struct {
@@ -67,10 +67,10 @@ func NewClient(config *Vault) (*Client, error) {
 			client.SetToken(token)
 			break
 		} else {
-			return nil, errors.New("Could not get Vault token.")
+			return nil, errors.New("could not get Vault token")
 		}
 	case "approle":
-		log.Println("Using approle authentication")
+		log.Println("using approle authentication")
 
 		if len(config.Credential.RoleID) == 0 {
 			return nil, errors.New("Role ID not found.")
@@ -91,7 +91,7 @@ func NewClient(config *Vault) (*Client, error) {
 		client.SetToken(token)
 
 	default:
-		return nil, fmt.Errorf("Auth method %s is not supported", config.Authentication)
+		return nil, fmt.Errorf("auth method %s is not supported", config.Authentication)
 	}
 
 	return &Client{client}, nil
@@ -108,7 +108,7 @@ func (c *Client) GetTLSConfig(path string, data map[string]interface{}) (*tls.Co
 		return nil, err
 	}
 
-	tlsConfig, err := ParsedCertBundle.GetTLSConfig(certutil.TLSClient)
+	tlsConfig, err := parsedCertBundle.GetTLSConfig(certutil.TLSClient)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +141,15 @@ func (c *Client) RenewSecret(secret *vault.Secret) error {
 	}
 }
 
-func (c *Client) GetSecret(path string) (*vault.Secret, error) {
-	log.Printf("Getting secret: %s", path)
-	secret, err := c.Logical().Read(path)
+func (c *Client) GetSecret(mountPath string, secretPath string) (*vault.KVSecret, error) {
+	log.Printf("Getting secret: %s/data/%s", mountPath, secretPath)
+	secret, err := c.KVv2(mountPath).Get(context.Background(), secretPath)
 	if err != nil {
-		return secret, nil
+		return nil, err
+	}
+
+	if secret == nil || secret.Data == nil {
+		return nil, errors.New(fmt.Sprintf("secret not found at path: %s/data/%s", mountPath, secretPath))
 	}
 	return secret, nil
 }
@@ -203,9 +207,9 @@ func (c *Client) GetAWSCredentials(path string) (*AWSCredentials, error) {
 	go c.RenewSecret(credentials)
 
 	return &AWSCredentials{
-		Access_key: credentials.Data["access_key"].(string),
-		Secret_key: credentials.Data["secret_key"].(string),
-		Secret:     credentials,
+		AccessKey: credentials.Data["access_key"].(string),
+		SecretKey: credentials.Data["secret_key"].(string),
+		Secret:    credentials,
 	}, nil
 }
 
@@ -215,12 +219,12 @@ func (c *Client) GetGCPServiceAccount(path string) (*GCPCredentials, error) {
 		return nil, err
 	}
 
-	secret_data, err := base64.StdEncoding.DecodeString(secret.Data["private_key_data"].(string))
+	secretData, err := base64.StdEncoding.DecodeString(secret.Data["private_key_data"].(string))
 	if err != nil {
 		return nil, err
 	}
 
-	credentials, err := google.CredentialsFromJSON(context.Background(), secret_data, "https://www.googleapis.com/auth/cloud-platform")
+	credentials, err := google.CredentialsFromJSON(context.Background(), secretData, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, err
 	}
