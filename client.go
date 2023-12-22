@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/sdk/helper/certutil"
 	"golang.org/x/oauth2/google"
 	"log"
@@ -80,15 +81,23 @@ func NewClient(config *Vault) (*Client, error) {
 			return nil, errors.New("Secret ID not found.")
 		}
 
-		data := map[string]interface{}{"role_id": config.Credential.RoleID, "secret_id": config.Credential.SecretID}
-		secret, err := client.Logical().Write(fmt.Sprintf("auth/%s/login", config.Path), data)
+		appRoleAuth, err := auth.NewAppRoleAuth(
+			config.Credential.RoleID,
+			&auth.SecretID{
+				FromString: config.Credential.SecretID,
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Printf("Metadata: %v", secret.Auth.Metadata)
-		token := secret.Auth.ClientToken
-		client.SetToken(token)
+		authInfo, err := client.Auth().Login(context.Background(), appRoleAuth)
+		if err != nil {
+			return nil, fmt.Errorf("unable to login to AppRole auth method: %w", err)
+		}
+		if authInfo == nil {
+			return nil, fmt.Errorf("no auth info was returned after login")
+		}
 
 	default:
 		return nil, fmt.Errorf("auth method %s is not supported", config.Authentication)

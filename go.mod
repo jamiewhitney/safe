@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/hashicorp/vault/api v1.10.0
+	github.com/hashicorp/vault/api/auth/approle v0.5.0
 	github.com/hashicorp/vault/sdk v0.10.2
 	golang.org/x/oauth2 v0.14.0
 )
